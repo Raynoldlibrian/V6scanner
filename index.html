@@ -1,14 +1,22 @@
-# FULL FILE — index.html
-
-```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>V6 Realtime Document Scanner</title>
+<meta name="viewport"
+content="width=device-width,
+initial-scale=1.0,
+maximum-scale=1.0,
+user-scalable=no">
+
+<title>V7 AI Document Scanner</title>
+
+<!-- OpenCV -->
+<script async
+src="https://docs.opencv.org/4.x/opencv.js"
+onload="opencvReady()"></script>
 
 <style>
+
 *{
   margin:0;
   padding:0;
@@ -17,24 +25,24 @@
 
 body{
   font-family:Arial,sans-serif;
-  background:#0f172a;
+  background:black;
   overflow:hidden;
 }
 
-.scanner-screen{
+#app{
   position:fixed;
   inset:0;
-  background:#000;
+  background:black;
 }
 
-#camera{
+video{
   position:absolute;
   width:100%;
   height:100%;
   object-fit:cover;
 }
 
-#overlay{
+canvas{
   position:absolute;
   inset:0;
   width:100%;
@@ -51,56 +59,52 @@ body{
   align-items:center;
   justify-content:space-between;
   padding:0 20px;
-  background:linear-gradient(to bottom, rgba(0,0,0,.8), transparent);
   z-index:20;
+  background:linear-gradient(
+    to bottom,
+    rgba(0,0,0,.8),
+    transparent
+  );
 }
 
 .icon-btn{
-  width:46px;
-  height:46px;
+  width:50px;
+  height:50px;
   border:none;
   border-radius:50%;
   background:rgba(255,255,255,.15);
   color:white;
-  font-size:20px;
+  font-size:22px;
   backdrop-filter:blur(10px);
 }
 
 .title{
   color:white;
-  font-size:16px;
+  font-size:18px;
   font-weight:bold;
 }
 
-.detect-status{
+.status{
   position:absolute;
-  top:90px;
+  top:100px;
   left:50%;
   transform:translateX(-50%);
-  background:rgba(0,0,0,.5);
-  color:white;
-  padding:10px 18px;
+  padding:12px 22px;
   border-radius:999px;
-  font-size:13px;
+  background:rgba(0,0,0,.55);
+  color:white;
   z-index:20;
   backdrop-filter:blur(10px);
 }
 
-.bottom-panel{
+.bottom{
   position:absolute;
-  bottom:0;
+  bottom:40px;
   left:0;
   right:0;
-  padding:20px;
-  background:linear-gradient(to top, rgba(0,0,0,.85), transparent);
-  z-index:20;
-}
-
-.controls{
   display:flex;
-  align-items:center;
   justify-content:center;
-  gap:30px;
+  z-index:20;
 }
 
 .capture-btn{
@@ -109,117 +113,152 @@ body{
   border-radius:50%;
   border:6px solid white;
   background:white;
-  box-shadow:0 0 30px rgba(255,255,255,.6);
 }
 
-.gallery{
+.ready-dot{
   position:absolute;
-  bottom:140px;
-  left:20px;
-  display:flex;
-  gap:10px;
-  overflow-x:auto;
-  z-index:20;
-  max-width:90%;
-}
-
-.thumb{
-  width:70px;
-  height:90px;
-  border-radius:12px;
-  object-fit:cover;
-  border:2px solid white;
-}
-
-.toast{
-  position:fixed;
-  bottom:170px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#16a34a;
-  color:white;
-  padding:12px 20px;
-  border-radius:999px;
-  display:none;
-  z-index:100;
-}
-
-.auto-indicator{
-  position:absolute;
-  top:130px;
+  top:110px;
   right:20px;
   width:16px;
   height:16px;
   border-radius:50%;
   background:#22c55e;
   box-shadow:0 0 20px #22c55e;
-  z-index:30;
+  z-index:20;
+}
+
+#hiddenCanvas{
+  display:none;
+}
+
+.loading{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  background:black;
+  z-index:999;
+  font-size:20px;
 }
 
 </style>
 </head>
 <body>
 
-<div class="scanner-screen">
+<div id="app">
 
-  <video id="camera" autoplay playsinline></video>
+  <div class="loading" id="loading">
+    Loading OpenCV...
+  </div>
+
+  <video
+    id="video"
+    autoplay
+    playsinline>
+  </video>
 
   <canvas id="overlay"></canvas>
 
+  <canvas id="hiddenCanvas"></canvas>
+
   <div class="topbar">
-    <button class="icon-btn" onclick="closeScanner()">✕</button>
-    <div class="title">Realtime Scanner V6</div>
-    <button class="icon-btn" onclick="toggleTorch()">💡</button>
+
+    <button class="icon-btn"
+      onclick="closeScanner()">
+      ✕
+    </button>
+
+    <div class="title">
+      V7 AI Scanner
+    </div>
+
+    <button class="icon-btn"
+      onclick="toggleTorch()">
+      💡
+    </button>
+
   </div>
 
-  <div class="detect-status" id="detectStatus">
+  <div class="status"
+    id="status">
     Mencari dokumen...
   </div>
 
-  <div class="auto-indicator"></div>
+  <div class="ready-dot"></div>
 
-  <div class="gallery" id="gallery"></div>
+  <div class="bottom">
 
-  <div class="bottom-panel">
-    <div class="controls">
-      <button class="capture-btn" onclick="captureDocument()"></button>
-    </div>
+    <button class="capture-btn"
+      onclick="captureImage()">
+    </button>
+
   </div>
 
-</div>
-
-<div class="toast" id="toast">
-  Dokumen berhasil discan
 </div>
 
 <script>
 
 let stream = null;
-let scanning = true;
-let torchEnabled = false;
+let scanning = false;
+let cvReady = false;
+let torch = false;
 
-const video = document.getElementById('camera');
-const overlay = document.getElementById('overlay');
-const ctx = overlay.getContext('2d');
-const gallery = document.getElementById('gallery');
-const detectStatus = document.getElementById('detectStatus');
+const video =
+document.getElementById("video");
 
-let capturedImages = [];
+const overlay =
+document.getElementById("overlay");
 
-/* =========================================
+const hiddenCanvas =
+document.getElementById("hiddenCanvas");
+
+const statusText =
+document.getElementById("status");
+
+const ctx =
+overlay.getContext("2d");
+
+const hiddenCtx =
+hiddenCanvas.getContext("2d");
+
+/* ====================================
+OPENCV READY
+==================================== */
+
+function opencvReady(){
+
+  cv["onRuntimeInitialized"] = ()=>{
+
+    cvReady = true;
+
+    document.getElementById(
+      "loading"
+    ).style.display = "none";
+
+    startCamera();
+  };
+}
+
+/* ====================================
 START CAMERA
-========================================= */
+==================================== */
 
 async function startCamera(){
 
   try{
 
-    stream = await navigator.mediaDevices.getUserMedia({
+    stream =
+    await navigator.mediaDevices
+    .getUserMedia({
+
       video:{
-        facingMode:'environment',
+        facingMode:"environment",
         width:{ideal:1920},
         height:{ideal:1080}
       },
+
       audio:false
     });
 
@@ -227,245 +266,385 @@ async function startCamera(){
 
     video.onloadedmetadata = ()=>{
 
-      overlay.width = video.videoWidth;
-      overlay.height = video.videoHeight;
+      overlay.width =
+      video.videoWidth;
 
-      requestAnimationFrame(scanLoop);
+      overlay.height =
+      video.videoHeight;
+
+      hiddenCanvas.width = 320;
+      hiddenCanvas.height = 240;
+
+      scanning = true;
+
+      requestAnimationFrame(
+        processFrame
+      );
     };
 
   }catch(err){
-    alert('Camera tidak tersedia');
+
+    alert(
+      "Tidak bisa mengakses kamera"
+    );
+
     console.log(err);
   }
 }
 
-/* =========================================
-MAIN LOOP
-========================================= */
+/* ====================================
+PROCESS FRAME
+==================================== */
 
-function scanLoop(){
+function processFrame(){
 
   if(!scanning) return;
 
   detectDocument();
 
-  requestAnimationFrame(scanLoop);
+  requestAnimationFrame(
+    processFrame
+  );
 }
 
-/* =========================================
-DETECT DOCUMENT
-========================================= */
+/* ====================================
+DOCUMENT DETECTION
+==================================== */
 
 function detectDocument(){
 
-  const w = overlay.width;
-  const h = overlay.height;
+  const w = hiddenCanvas.width;
+  const h = hiddenCanvas.height;
 
-  ctx.clearRect(0,0,w,h);
+  hiddenCtx.drawImage(
+    video,
+    0,
+    0,
+    w,
+    h
+  );
 
-  const padX = w * 0.12;
-  const padY = h * 0.18;
+  let src =
+  cv.imread(hiddenCanvas);
 
-  const points = [
-    {x:padX,y:padY},
-    {x:w-padX,y:padY+20},
-    {x:w-padX-20,y:h-padY},
-    {x:padX+20,y:h-padY-20}
-  ];
+  let gray =
+  new cv.Mat();
 
-  drawPolygon(points);
+  let blur =
+  new cv.Mat();
 
-  detectStatus.innerHTML = 'Dokumen terdeteksi';
+  let edges =
+  new cv.Mat();
+
+  let contours =
+  new cv.MatVector();
+
+  let hierarchy =
+  new cv.Mat();
+
+  /* grayscale */
+
+  cv.cvtColor(
+    src,
+    gray,
+    cv.COLOR_RGBA2GRAY
+  );
+
+  /* blur */
+
+  cv.GaussianBlur(
+    gray,
+    blur,
+    new cv.Size(5,5),
+    0
+  );
+
+  /* edges */
+
+  cv.Canny(
+    blur,
+    edges,
+    75,
+    200
+  );
+
+  /* contours */
+
+  cv.findContours(
+    edges,
+    contours,
+    hierarchy,
+    cv.RETR_LIST,
+    cv.CHAIN_APPROX_SIMPLE
+  );
+
+  let biggest = null;
+  let maxArea = 0;
+
+  for(let i=0;
+      i<contours.size();
+      i++){
+
+    let cnt =
+    contours.get(i);
+
+    let peri =
+    cv.arcLength(cnt,true);
+
+    let approx =
+    new cv.Mat();
+
+    cv.approxPolyDP(
+      cnt,
+      approx,
+      0.02 * peri,
+      true
+    );
+
+    let area =
+    cv.contourArea(cnt);
+
+    if(
+      approx.rows === 4 &&
+      area > maxArea &&
+      area > 5000
+    ){
+
+      biggest = approx;
+      maxArea = area;
+    }
+  }
+
+  ctx.clearRect(
+    0,
+    0,
+    overlay.width,
+    overlay.height
+  );
+
+  if(biggest){
+
+    drawDocumentPolygon(biggest);
+
+    statusText.innerHTML =
+    "Dokumen terdeteksi";
+
+  }else{
+
+    statusText.innerHTML =
+    "Mencari dokumen...";
+  }
+
+  src.delete();
+  gray.delete();
+  blur.delete();
+  edges.delete();
+  contours.delete();
+  hierarchy.delete();
 }
 
-/* =========================================
+/* ====================================
 DRAW POLYGON
-========================================= */
+==================================== */
 
-function drawPolygon(points){
+function drawDocumentPolygon(approx){
 
-  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  const scaleX =
+  overlay.width /
+  hiddenCanvas.width;
+
+  const scaleY =
+  overlay.height /
+  hiddenCanvas.height;
+
+  let points = [];
+
+  for(let i=0;
+      i<4;
+      i++){
+
+    let x =
+    approx.intPtr(i,0)[0];
+
+    let y =
+    approx.intPtr(i,0)[1];
+
+    points.push({
+      x:x * scaleX,
+      y:y * scaleY
+    });
+  }
+
+  /* dark overlay */
+
+  ctx.fillStyle =
+  "rgba(0,0,0,.45)";
 
   ctx.beginPath();
-  ctx.rect(0,0,overlay.width,overlay.height);
 
-  ctx.moveTo(points[0].x, points[0].y);
+  ctx.rect(
+    0,
+    0,
+    overlay.width,
+    overlay.height
+  );
 
-  for(let i=1;i<points.length;i++){
-    ctx.lineTo(points[i].x, points[i].y);
+  ctx.moveTo(
+    points[0].x,
+    points[0].y
+  );
+
+  for(let i=1;
+      i<points.length;
+      i++){
+
+    ctx.lineTo(
+      points[i].x,
+      points[i].y
+    );
   }
 
   ctx.closePath();
 
-  ctx.fill('evenodd');
+  ctx.fill("evenodd");
+
+  /* polygon */
 
   ctx.beginPath();
 
-  ctx.moveTo(points[0].x, points[0].y);
+  ctx.moveTo(
+    points[0].x,
+    points[0].y
+  );
 
-  for(let i=1;i<points.length;i++){
-    ctx.lineTo(points[i].x, points[i].y);
+  for(let i=1;
+      i<points.length;
+      i++){
+
+    ctx.lineTo(
+      points[i].x,
+      points[i].y
+    );
   }
 
   ctx.closePath();
 
-  ctx.strokeStyle = '#FFD600';
+  ctx.strokeStyle =
+  "#FFD600";
+
   ctx.lineWidth = 6;
+
   ctx.stroke();
+
+  /* corner dots */
 
   points.forEach(p=>{
 
     ctx.beginPath();
-    ctx.arc(p.x,p.y,12,0,Math.PI*2);
-    ctx.fillStyle = '#FFD600';
+
+    ctx.arc(
+      p.x,
+      p.y,
+      10,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fillStyle =
+    "#FFD600";
+
     ctx.fill();
   });
 }
 
-/* =========================================
-CAPTURE DOCUMENT
-========================================= */
+/* ====================================
+CAPTURE IMAGE
+==================================== */
 
-function captureDocument(){
+function captureImage(){
 
-  const canvas = document.createElement('canvas');
+  const canvas =
+  document.createElement("canvas");
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width =
+  video.videoWidth;
 
-  const c = canvas.getContext('2d');
+  canvas.height =
+  video.videoHeight;
 
-  c.drawImage(video,0,0);
+  const c =
+  canvas.getContext("2d");
 
-  const image = canvas.toDataURL('image/jpeg',0.95);
+  c.drawImage(
+    video,
+    0,
+    0
+  );
 
-  capturedImages.push(image);
+  const img =
+  canvas.toDataURL(
+    "image/jpeg",
+    0.95
+  );
 
-  renderGallery();
+  const a =
+  document.createElement("a");
 
-  showToast();
+  a.href = img;
+
+  a.download =
+  "scan-"+Date.now()+".jpg";
+
+  a.click();
 }
 
-/* =========================================
-GALLERY
-========================================= */
-
-function renderGallery(){
-
-  gallery.innerHTML = '';
-
-  capturedImages.forEach(src=>{
-
-    const img = document.createElement('img');
-
-    img.src = src;
-    img.className = 'thumb';
-
-    gallery.appendChild(img);
-  });
-}
-
-/* =========================================
+/* ====================================
 TORCH
-========================================= */
+==================================== */
 
 async function toggleTorch(){
 
   try{
 
-    const track = stream.getVideoTracks()[0];
+    const track =
+    stream.getVideoTracks()[0];
 
-    const capabilities = track.getCapabilities();
+    const capabilities =
+    track.getCapabilities();
 
     if(capabilities.torch){
 
-      torchEnabled = !torchEnabled;
+      torch = !torch;
 
       await track.applyConstraints({
-        advanced:[{torch:torchEnabled}]
+        advanced:[{
+          torch:torch
+        }]
       });
     }
 
   }catch(err){
+
     console.log(err);
   }
 }
 
-/* =========================================
-TOAST
-========================================= */
-
-function showToast(){
-
-  const toast = document.getElementById('toast');
-
-  toast.style.display = 'block';
-
-  setTimeout(()=>{
-    toast.style.display = 'none';
-  },2000);
-}
-
-/* =========================================
-CLOSE CAMERA
-========================================= */
+/* ====================================
+CLOSE
+==================================== */
 
 function closeScanner(){
 
   scanning = false;
 
   if(stream){
-    stream.getTracks().forEach(track=>track.stop());
+
+    stream.getTracks()
+    .forEach(track=>track.stop());
   }
 }
-
-/* =========================================
-INIT
-========================================= */
-
-startCamera();
 
 </script>
 
 </body>
 </html>
-```
-
-## CARA MENJALANKAN
-
-1. Simpan sebagai `index.html`
-2. Jalankan menggunakan:
-
-   * localhost
-   * Vercel
-   * Netlify
-   * GitHub Pages
-3. WAJIB menggunakan HTTPS untuk akses kamera
-4. Buka di Chrome Android
-5. Izinkan permission kamera
-
-## FITUR YANG SUDAH ADA
-
-✅ Realtime camera
-✅ Overlay scanner
-✅ Polygon kuning
-✅ Overlay gelap
-✅ Capture dokumen
-✅ Torch/flash
-✅ Gallery hasil scan
-✅ UI fullscreen
-✅ Mobile friendly
-
-## NEXT UPGRADE
-
-Nanti bisa ditambah:
-
-* auto edge detection asli
-* perspective transform
-* magic color
-* black & white scan
-* OCR text
-* export PDF
-* multi page scanner
-* auto capture saat stabil
-* OpenCV AI detection
