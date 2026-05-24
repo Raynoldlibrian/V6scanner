@@ -8,12 +8,12 @@ initial-scale=1.0,
 maximum-scale=1.0,
 user-scalable=no">
 
-<title>V7 AI Document Scanner</title>
+<title>V7.1 AI Document Scanner</title>
 
 <!-- OpenCV -->
-<script async
-src="https://docs.opencv.org/4.x/opencv.js"
-onload="opencvReady()"></script>
+<script
+src="https://docs.opencv.org/4.x/opencv.js">
+</script>
 
 <style>
 
@@ -24,10 +24,14 @@ onload="opencvReady()"></script>
 }
 
 body{
+  background:#000;
   font-family:Arial,sans-serif;
-  background:black;
   overflow:hidden;
 }
+
+/* ====================================
+APP
+==================================== */
 
 #app{
   position:fixed;
@@ -42,12 +46,16 @@ video{
   object-fit:cover;
 }
 
-canvas{
+#overlay{
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
 }
+
+/* ====================================
+TOPBAR
+==================================== */
 
 .topbar{
   position:absolute;
@@ -59,10 +67,11 @@ canvas{
   align-items:center;
   justify-content:space-between;
   padding:0 20px;
-  z-index:20;
+  z-index:50;
+
   background:linear-gradient(
     to bottom,
-    rgba(0,0,0,.8),
+    rgba(0,0,0,.85),
     transparent
   );
 }
@@ -84,63 +93,99 @@ canvas{
   font-weight:bold;
 }
 
+/* ====================================
+STATUS
+==================================== */
+
 .status{
   position:absolute;
-  top:100px;
+  top:95px;
   left:50%;
   transform:translateX(-50%);
-  padding:12px 22px;
+  padding:12px 20px;
   border-radius:999px;
+
   background:rgba(0,0,0,.55);
+
   color:white;
-  z-index:20;
+  font-size:14px;
+
+  z-index:50;
+
   backdrop-filter:blur(10px);
 }
+
+.ready-dot{
+  position:absolute;
+  top:105px;
+  right:20px;
+
+  width:16px;
+  height:16px;
+  border-radius:50%;
+
+  background:#22c55e;
+
+  box-shadow:0 0 20px #22c55e;
+
+  z-index:50;
+}
+
+/* ====================================
+BOTTOM
+==================================== */
 
 .bottom{
   position:absolute;
   bottom:40px;
   left:0;
   right:0;
+
   display:flex;
   justify-content:center;
-  z-index:20;
+
+  z-index:50;
 }
 
 .capture-btn{
   width:95px;
   height:95px;
+
   border-radius:50%;
+
   border:6px solid white;
+
   background:white;
+
+  box-shadow:0 0 30px rgba(255,255,255,.6);
 }
 
-.ready-dot{
-  position:absolute;
-  top:110px;
-  right:20px;
-  width:16px;
-  height:16px;
-  border-radius:50%;
-  background:#22c55e;
-  box-shadow:0 0 20px #22c55e;
-  z-index:20;
-}
-
-#hiddenCanvas{
-  display:none;
-}
+/* ====================================
+LOADING
+==================================== */
 
 .loading{
   position:absolute;
   inset:0;
+
   display:flex;
   align-items:center;
   justify-content:center;
-  color:white;
+
   background:black;
+  color:white;
+
+  font-size:22px;
+
   z-index:999;
-  font-size:20px;
+}
+
+/* ====================================
+HIDDEN CANVAS
+==================================== */
+
+#hiddenCanvas{
+  display:none;
 }
 
 </style>
@@ -149,20 +194,25 @@ canvas{
 
 <div id="app">
 
-  <div class="loading" id="loading">
+  <div class="loading"
+    id="loading">
     Loading OpenCV...
   </div>
 
+  <!-- CAMERA -->
   <video
     id="video"
     autoplay
     playsinline>
   </video>
 
+  <!-- OVERLAY -->
   <canvas id="overlay"></canvas>
 
+  <!-- PROCESSING -->
   <canvas id="hiddenCanvas"></canvas>
 
+  <!-- TOPBAR -->
   <div class="topbar">
 
     <button class="icon-btn"
@@ -171,7 +221,7 @@ canvas{
     </button>
 
     <div class="title">
-      V7 AI Scanner
+      V7.1 AI Scanner
     </div>
 
     <button class="icon-btn"
@@ -181,6 +231,7 @@ canvas{
 
   </div>
 
+  <!-- STATUS -->
   <div class="status"
     id="status">
     Mencari dokumen...
@@ -188,6 +239,7 @@ canvas{
 
   <div class="ready-dot"></div>
 
+  <!-- BOTTOM -->
   <div class="bottom">
 
     <button class="capture-btn"
@@ -200,10 +252,23 @@ canvas{
 
 <script>
 
+/* ====================================
+GLOBAL
+==================================== */
+
 let stream = null;
+
 let scanning = false;
-let cvReady = false;
+
 let torch = false;
+
+let cvReady = false;
+
+let stablePoints = null;
+
+/* ====================================
+ELEMENTS
+==================================== */
 
 const video =
 document.getElementById("video");
@@ -224,12 +289,12 @@ const hiddenCtx =
 hiddenCanvas.getContext("2d");
 
 /* ====================================
-OPENCV READY
+WAIT OPENCV
 ==================================== */
 
-function opencvReady(){
+function waitForCV(){
 
-  cv["onRuntimeInitialized"] = ()=>{
+  if(window.cv && cv.Mat){
 
     cvReady = true;
 
@@ -238,8 +303,14 @@ function opencvReady(){
     ).style.display = "none";
 
     startCamera();
-  };
+
+  }else{
+
+    setTimeout(waitForCV,300);
+  }
 }
+
+waitForCV();
 
 /* ====================================
 START CAMERA
@@ -255,8 +326,9 @@ async function startCamera(){
 
       video:{
         facingMode:"environment",
-        width:{ideal:1920},
-        height:{ideal:1080}
+
+        width:{ideal:1280},
+        height:{ideal:720}
       },
 
       audio:false
@@ -272,8 +344,10 @@ async function startCamera(){
       overlay.height =
       video.videoHeight;
 
-      hiddenCanvas.width = 320;
-      hiddenCanvas.height = 240;
+      /* lebih ringan */
+
+      hiddenCanvas.width = 240;
+      hiddenCanvas.height = 180;
 
       scanning = true;
 
@@ -293,7 +367,7 @@ async function startCamera(){
 }
 
 /* ====================================
-PROCESS FRAME
+MAIN LOOP
 ==================================== */
 
 function processFrame(){
@@ -313,8 +387,11 @@ DOCUMENT DETECTION
 
 function detectDocument(){
 
-  const w = hiddenCanvas.width;
-  const h = hiddenCanvas.height;
+  const w =
+  hiddenCanvas.width;
+
+  const h =
+  hiddenCanvas.height;
 
   hiddenCtx.drawImage(
     video,
@@ -333,6 +410,9 @@ function detectDocument(){
   let blur =
   new cv.Mat();
 
+  let thresh =
+  new cv.Mat();
+
   let edges =
   new cv.Mat();
 
@@ -342,7 +422,9 @@ function detectDocument(){
   let hierarchy =
   new cv.Mat();
 
-  /* grayscale */
+  /* ============================
+  GRAYSCALE
+  ============================ */
 
   cv.cvtColor(
     src,
@@ -350,35 +432,80 @@ function detectDocument(){
     cv.COLOR_RGBA2GRAY
   );
 
-  /* blur */
+  /* ============================
+  BLUR
+  ============================ */
 
   cv.GaussianBlur(
     gray,
     blur,
-    new cv.Size(5,5),
+    new cv.Size(7,7),
     0
   );
 
-  /* edges */
+  /* ============================
+  ADAPTIVE THRESHOLD
+  ============================ */
 
-  cv.Canny(
+  cv.adaptiveThreshold(
     blur,
-    edges,
-    75,
-    200
+    thresh,
+    255,
+
+    cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+
+    cv.THRESH_BINARY,
+
+    11,
+
+    2
   );
 
-  /* contours */
+  /* ============================
+  CANNY
+  ============================ */
+
+  cv.Canny(
+    thresh,
+    edges,
+    50,
+    150
+  );
+
+  /* ============================
+  MORPHOLOGY
+  ============================ */
+
+  let kernel =
+  cv.Mat.ones(
+    3,
+    3,
+    cv.CV_8U
+  );
+
+  cv.morphologyEx(
+    edges,
+    edges,
+    cv.MORPH_CLOSE,
+    kernel
+  );
+
+  /* ============================
+  FIND CONTOUR
+  ============================ */
 
   cv.findContours(
     edges,
     contours,
     hierarchy,
-    cv.RETR_LIST,
+
+    cv.RETR_EXTERNAL,
+
     cv.CHAIN_APPROX_SIMPLE
   );
 
   let biggest = null;
+
   let maxArea = 0;
 
   for(let i=0;
@@ -389,7 +516,10 @@ function detectDocument(){
     contours.get(i);
 
     let peri =
-    cv.arcLength(cnt,true);
+    cv.arcLength(
+      cnt,
+      true
+    );
 
     let approx =
     new cv.Mat();
@@ -407,10 +537,11 @@ function detectDocument(){
     if(
       approx.rows === 4 &&
       area > maxArea &&
-      area > 5000
+      area > 3000
     ){
 
       biggest = approx;
+
       maxArea = area;
     }
   }
@@ -424,7 +555,7 @@ function detectDocument(){
 
   if(biggest){
 
-    drawDocumentPolygon(biggest);
+    drawPolygon(biggest);
 
     statusText.innerHTML =
     "Dokumen terdeteksi";
@@ -435,19 +566,23 @@ function detectDocument(){
     "Mencari dokumen...";
   }
 
+  /* cleanup */
+
   src.delete();
   gray.delete();
   blur.delete();
+  thresh.delete();
   edges.delete();
   contours.delete();
   hierarchy.delete();
+  kernel.delete();
 }
 
 /* ====================================
 DRAW POLYGON
 ==================================== */
 
-function drawDocumentPolygon(approx){
+function drawPolygon(approx){
 
   const scaleX =
   overlay.width /
@@ -475,7 +610,30 @@ function drawDocumentPolygon(approx){
     });
   }
 
-  /* dark overlay */
+  /* ============================
+  SMOOTHING
+  ============================ */
+
+  if(stablePoints){
+
+    points = points.map((p,i)=>({
+
+      x:
+      stablePoints[i].x * 0.7 +
+      p.x * 0.3,
+
+      y:
+      stablePoints[i].y * 0.7 +
+      p.y * 0.3
+
+    }));
+  }
+
+  stablePoints = points;
+
+  /* ============================
+  DARK OVERLAY
+  ============================ */
 
   ctx.fillStyle =
   "rgba(0,0,0,.45)";
@@ -508,7 +666,9 @@ function drawDocumentPolygon(approx){
 
   ctx.fill("evenodd");
 
-  /* polygon */
+  /* ============================
+  POLYGON
+  ============================ */
 
   ctx.beginPath();
 
@@ -536,7 +696,9 @@ function drawDocumentPolygon(approx){
 
   ctx.stroke();
 
-  /* corner dots */
+  /* ============================
+  CORNER POINT
+  ============================ */
 
   points.forEach(p=>{
 
@@ -547,7 +709,7 @@ function drawDocumentPolygon(approx){
       p.y,
       10,
       0,
-      Math.PI*2
+      Math.PI * 2
     );
 
     ctx.fillStyle =
@@ -558,7 +720,7 @@ function drawDocumentPolygon(approx){
 }
 
 /* ====================================
-CAPTURE IMAGE
+CAPTURE
 ==================================== */
 
 function captureImage(){
